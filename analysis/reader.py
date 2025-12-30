@@ -42,7 +42,7 @@ class PUEORootReader():
         The deadtime in clock cycles at the last PPS.
     l2_mask : int
         A 24 bit number, each bit corresponding to the SURF Channels (which target 2 phi sectors of one polarity).
-        Each bit value indicates the L2 sector enable mask (1: enabled, 0: masked off).
+        Each bit value indicates the channel's L2 sector enable mask (1: enabled, 0: masked off).
     soft_trigger : int
         Flags if the active event is a software ("forced") trigger.
     pps_trigger : int
@@ -53,7 +53,7 @@ class PUEORootReader():
         The UTC seconds at which the active event was read out.
     readout_time_utc_nsec : int
         The UTC nanoseconds at which the active event was read out.
-    channel_id : 1darray
+    channel_ids : 1darray
         The DAQ channel IDs corresponding to each waveform in the active event.
     surf_word : 1darray
         SURF header word (not exactly sure what that means...)
@@ -68,7 +68,8 @@ class PUEORootReader():
     readout_date : datetime.datetime
         The UTC date timestamp at which the active event was read out.
     subsecond : float
-        The GPS subsecond of the active event.
+        The GPS subsecond of the active event. Note that this may not be well defined for early events in 
+        a given run (need enough time for two PPS to pass for valid last_pps and llast_pps values).
     N : int
         The number of events found in the active run.
 
@@ -76,6 +77,7 @@ class PUEORootReader():
     -------
     setRun(run, index=True)
         Sets the active run. Input the run number, or input the index of runs with index=True.
+        This will reset the active event to the first listed for the active run.
     setEvent(event, index=True)
         Sets the active event. Input the event number, or input the index of events with index=True.
     getTriggerTypes()
@@ -157,8 +159,10 @@ class PUEORootReader():
 
     @property
     def subsecond(self):
-        '''Returns the GPS subsecond of the active event. NOT YET VERIFIED.'''
-        return int(self.event_time - self.last_pps) / int(self.last_pps - self.llast_pps)
+        '''Returns the GPS subsecond of the active event. Note that this may not be well defined for early events in a given run (need
+        enough time for two PPS to pass for valid last_pps and llast_pps values).'''
+        # cast away from uint32's to avoid "overflow" errors (occur when last_pps > event_time, aka early event)
+        return ( np.float64(self.event_time) - np.float64(self.last_pps) ) / ( np.float64(self.last_pps) - np.float64(self.llast_pps) )
 
     @property
     def N(self):
@@ -168,7 +172,7 @@ class PUEORootReader():
     def setRun(self, run, index=False):
         '''
         Sets the active run. Give the run number, or the index of the runs with index=True.
-        This will resets the active event to the first listed.
+        This will reset the active event to the first listed for the active run.
         '''
         if index:
             self.run = self.runs[run]
@@ -198,7 +202,7 @@ class PUEORootReader():
 
     def getWF(self, channel):
         '''Return the given channel's waveform for the current active event.'''
-        index_of_channel = np.asarray(self.channel_id == int(channel)).nonzero()[0][0]
+        index_of_channel = np.asarray(self.channel_ids == int(channel)).nonzero()[0][0]
         return self.wfs[index_of_channel]
 
         
@@ -222,7 +226,7 @@ class PUEORootReader():
         # self.reserved = self._RESERVED[self._active_index]
         self.readout_time_utc_sec = self._READOUT_TIME_UTC_SECS[self._active_index]
         self.readout_time_utc_nsec = self._READOUT_TIME_UTC_NSECS[self._active_index]
-        self.channel_id = self._CHANNEL_ID[self._active_index]
+        self.channel_ids = self._CHANNEL_ID[self._active_index]
         self.surf_word = self._SURF_WORD[self._active_index]
         self.wf_length = self._WF_LENGTH[self._active_index]
         self.wfs = self._WFS[self._active_index]
