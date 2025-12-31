@@ -68,8 +68,8 @@ class PUEORootReader():
     readout_date : datetime.datetime
         The UTC date timestamp at which the active event was read out.
     subsecond : float
-        The GPS subsecond of the active event. Note that this may not be well defined for early events in 
-        a given run (need enough time for two PPS to pass for valid last_pps and llast_pps values).
+        Returns the GPS subsecond of the active event. If the event occurs before 1 PPS has passed, then a valid
+        last_pps may not be found. In this case, an invalid flag value of -666 will be returned.
     N : int
         The number of events found in the active run.
 
@@ -159,10 +159,17 @@ class PUEORootReader():
 
     @property
     def subsecond(self):
-        '''Returns the GPS subsecond of the active event. Note that this may not be well defined for early events in a given run (need
-        enough time for two PPS to pass for valid last_pps and llast_pps values).'''
-        # cast away from uint32's to avoid "overflow" errors (occur when last_pps > event_time, aka early event)
-        return ( np.float64(self.event_time) - np.float64(self.last_pps) ) / ( np.float64(self.last_pps) - np.float64(self.llast_pps) )
+        '''Returns the GPS subsecond of the active event. If the event occurs before 1 PPS has passed, then a valid
+        last_pps may not be found. In this case, an invalid flag value of -666 will be returned.'''
+
+        # too early, return invalid flag value
+        if self.last_pps > self.event_time:
+            return -666
+
+        # if less than 2 PPS, but at least 1 PPS have passed, divide by the assumed clock frequency of 125M, otherwise use the pps clock difference
+        divide_by = 125e6 if self.llast_pps > self.last_pps else self.last_pps - self.llast_pps
+            
+        return (self.event_time - self.last_pps) / divide_by
 
     @property
     def N(self):
