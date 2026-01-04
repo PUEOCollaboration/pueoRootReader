@@ -41,7 +41,7 @@ class PUEORootReader():
     deadtime_counter_llast_pps : int
         The deadtime in clock cycles at the last PPS.
     l2_mask : int
-        A 24 bit number, each bit corresponding to the SURF Channels (which target 2 phi sectors of one polarity).
+        A 32 bit number, where each of the trailing 24 bits corresponds to an L2 sector (i.e. an overlapping beam section of two SURFs).
         Each bit value indicates the channel's L2 sector enable mask (1: enabled, 0: masked off).
     soft_trigger : int
         Flags if the active event is a software ("forced") trigger.
@@ -56,7 +56,8 @@ class PUEORootReader():
     channel_ids : 1darray
         The DAQ channel IDs corresponding to each waveform in the active event.
     surf_word : 1darray
-        SURF header word (not exactly sure what that means...)
+        SURF header word for each channel. Note that SURF words are the same for channels on the same SURF. Each SURF word is a byte,
+        where each bit corresponds to enabled L2 octant beams.
     wf_length : 1darray
         The sampling lengths corresponding to each waveform in the active event.
     wfs : 2darray
@@ -68,8 +69,8 @@ class PUEORootReader():
     readout_date : datetime.datetime
         The UTC date timestamp at which the active event was read out.
     subsecond : float
-        Returns the GPS subsecond of the active event. If the event occurs before 1 PPS has passed, then a valid
-        last_pps may not be found. In this case, an invalid flag value of -666 will be returned.
+        Returns the approximate GPS subsecond of the active event. If the event occurs before 1 PPS has passed, 
+        then a valid last_pps may not be found. In this case, an invalid flag value of -666 will be returned.
     N : int
         The number of events found in the active run.
 
@@ -164,6 +165,7 @@ class PUEORootReader():
 
         # too early, return invalid flag value
         if self.last_pps > self.event_time:
+            warnings.warn("Event occurs before a valid last_pps; subsecond return value is -666")
             return -666
 
         # if less than 2 PPS, but at least 1 PPS have passed, divide by the assumed clock frequency of 125M, otherwise use the pps clock difference
