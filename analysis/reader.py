@@ -75,6 +75,9 @@ class PUEORootReader():
         then a valid last_pps may not be found. In this case, an invalid flag value of -666 will be returned.
     N : int
         The number of events found in the active run.
+    triggered_l2_sectors : array
+        The triggered L2 sectors. Each sector represents two adjacent SURFs with sufficient power in their overlapping beams.
+        These are determined by the nonzero binary digits in the l2_mask.
 
     Methods
     -------
@@ -184,6 +187,12 @@ class PUEORootReader():
         '''The number of events found in the active run.'''
         return len(self.events)
 
+    @property
+    def triggered_l2_sectors(self):
+        '''The triggered L2 sectors. Each sector represents two adjacent SURFs with sufficient power in their overlapping beams.
+        These are determined by the nonzero binary digits in the l2_mask.'''
+        return np.cumsum([1+len(l2) for l2 in self.l2_mask.split('1')[::-1]])[:-1] - 1
+
     def setRun(self, run, index=False):
         '''
         Sets the active run. Give the run number, or the index of the runs with index=True.
@@ -250,4 +259,10 @@ class PUEORootReader():
         self.surf_word = self._SURF_WORD[self._active_index]
         self.wf_length = self._WF_LENGTH[self._active_index]
         self.wfs = self._WFS[self._active_index]
-      
+
+
+# Don't have the file locally? No problem! All you need is this function, and... patience :)
+def seekRootFile(run, chunk, user='', password=''):
+    '''Seek the data ROOT file path from online. These files come from "/data/pueo/starlink-offline/rootified/". 
+    The run and chunk refer to the subdirectory and saved data chunk (100, 200, ...).'''
+    return f'https://{user}:{password}@pueo.uchicago.edu/data/pueo/starlink-offline/rootified/run{run:04d}/{chunk:06d}.root'
